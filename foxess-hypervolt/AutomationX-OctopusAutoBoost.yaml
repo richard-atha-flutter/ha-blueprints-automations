@@ -43,14 +43,6 @@ blueprint:
           filter:
             domain: switch
             integration: hypervolt_charger
-    octopus_free_electricity:
-      name: Octopus Energy Free Electricity Sensor
-      description: "Reserved for future use - not currently referenced by this automation's logic."
-      selector:
-        entity:
-          filter:
-            domain: binary_sensor
-            integration: octopus_energy
     octopus_smart_charge_switch:
       name: Octopus Intelligent Smart Charge Switch
       description: "The switch that enables/disables Octopus Intelligent smart charging, for example: switch.octopus_energy_..._intelligent_smart_charge"
