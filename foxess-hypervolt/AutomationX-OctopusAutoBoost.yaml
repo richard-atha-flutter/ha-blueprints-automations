@@ -29,7 +29,7 @@ blueprint:
             integration: foxess_modbus
     hypervolt_ev_plugged:
       name: Hypervolt Car Plugged
-      description: This is the sensor that shows if the car is plugged in, for example: binary_sensor.hypervolt_car_plugged
+      description: "This is the sensor that shows if the car is plugged in, for example: binary_sensor.hypervolt_car_plugged"
       selector:
         entity:
           filter:
