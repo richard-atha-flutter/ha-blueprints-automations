@@ -2,18 +2,18 @@ blueprint:
   name: Automation 2 - Octopus Auto Boost
   author: TechGuides
   source_url: https://github.com/MagicalTrev89/ha-blueprints-automations/blob/master/foxess-hypervolt/automation3-octopusautoboost.yaml
-  description: | 
+  description: |
     ## Overview
-    This automation asssumes you have
+    This automation assumes you have
     - Octopus Integration
     - Hypervolt Integration
     - FoxESS Inverter
 
-    This automation manipulates the octopus inteligent go target amount to maintain sufficient charge in the FoxESS battery.
+    This automation manipulates the Octopus Intelligent Go target amount to maintain sufficient charge in the FoxESS battery.
 
-    The Target amount, is the amount of charge to add to the car set in the octopus app, setting the target amount to 100% provides the highest chance of getting a charging window
-    When the FoxESS battery is charged to a sufficient level, the target charge amount is lowered to 10% which usually results in the car to stop charging.
-    By Stopping the car from charging, we leave charging capacity so that the automation can again charge the battery up when needed.
+    The Target amount is the amount of charge to add to the car set in the Octopus app. Setting the target amount to 100% provides the highest chance of getting a charging window.
+    When the FoxESS battery is charged to a sufficient level, the target charge amount is lowered (default 10%), which usually results in the car stopping charging.
+    By stopping the car from charging, we leave charging capacity so the automation can charge the battery up again when needed.
 
     This allows the house to run at an overall cheaper rate of electricity, helping prevent the house from running out of battery and pulling from the grid.
   domain: automation
@@ -35,23 +35,96 @@ blueprint:
           filter:
             domain: binary_sensor
             integration: hypervolt_charger
+    hypervolt_charging_switch:
+      name: Hypervolt Charging Switch
+      description: "The switch that shows/controls whether the car is actively charging, for example: switch.hypervolt_charging"
+      selector:
+        entity:
+          filter:
+            domain: switch
+            integration: hypervolt_charger
     octopus_free_electricity:
       name: Octopus Energy Free Electricity Sensor
+      description: "Reserved for future use - not currently referenced by this automation's logic."
       selector:
         entity:
           filter:
             domain: binary_sensor
             integration: octopus_energy
-triggers:
-  - trigger: numeric_state
-    id: ev_power
-    entity_id: !input foxess_modbus_soc
-    below: 26
-    enabled: true
-  - trigger: state
-    id: ev_plugged
-    entity_id: !input hypervolt_ev_plugged
-    from: "off"
-    to: "on"
-    enabled: true
-    
+    octopus_smart_charge_switch:
+      name: Octopus Intelligent Smart Charge Switch
+      description: "The switch that enables/disables Octopus Intelligent smart charging, for example: switch.octopus_energy_..._intelligent_smart_charge"
+      selector:
+        entity:
+          filter:
+            domain: switch
+            integration: octopus_energy
+    octopus_charge_target_number:
+      name: Octopus Intelligent Charge Target
+      description: "The number entity controlling the Octopus Intelligent charge target %, for example: number.octopus_energy_..._intelligent_charge_target"
+      selector:
+        entity:
+          filter:
+            domain: number
+            integration: octopus_energy
+    daily_ev_charging_time_sensor:
+      name: Daily EV Charging Time Sensor
+      description: "A sensor tracking how many hours the EV has charged today, used to avoid over-boosting."
+      selector:
+        entity:
+          filter:
+            domain: sensor
+    solar_power_sensor:
+      name: Solar Power Sensor
+      description: "Current solar production, used to detect low-solar periods, for example: sensor.pv_power_rhs"
+      selector:
+        entity:
+          filter:
+            domain: sensor
+    work_mode_select:
+      name: Inverter Work Mode Select
+      description: "The select entity for the FoxESS work mode, for example: select.rhs_work_mode"
+      selector:
+        entity:
+          filter:
+            domain: select
+    work_mode_self_use_state:
+      name: Self Use Work Mode State
+      description: "The exact option text that represents 'Self Use' mode on your inverter."
+      default: "Self Use"
+      selector:
+        text: {}
+    boost_below_soc:
+      name: Boost Trigger SOC (%)
+      description: "House battery SOC below which boosting may start."
+      default: 26
+      selector:
+        number:
+          min: 0
+          max: 100
+          step: 1
+          unit_of_measurement: "%"
+          mode: box
+    boost_below_soc_critical:
+      name: Critical Boost SOC (%)
+      description: "House battery SOC below which boosting starts even without low solar."
+      default: 21
+      selector:
+        number:
+          min: 0
+          max: 100
+          step: 1
+          unit_of_measurement: "%"
+          mode: box
+    solar_low_threshold:
+      name: Low Solar Threshold (kW)
+      default: 0.05
+      selector:
+        number:
+          min: 0
+          max: 10
+          step: 0.01
+          unit_of_measurement: "kW"
+          mode: box
+    max_daily_ev_charging_hours:
+      name: Max Daily EV Charging Hours
