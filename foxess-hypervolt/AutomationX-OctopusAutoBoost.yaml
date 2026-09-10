@@ -1,5 +1,5 @@
 blueprint:
-  name: Automation 2 - Stop Charging
+  name: Automation 2 - Octopus Auto Boost
   author: TechGuides
   source_url: https://github.com/MagicalTrev89/ha-blueprints-automations/blob/master/foxess-hypervolt/automation3-octopusautoboost.yaml
   description: | 
