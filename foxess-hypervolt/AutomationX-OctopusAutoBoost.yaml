@@ -120,3 +120,162 @@ blueprint:
           mode: box
     max_daily_ev_charging_hours:
       name: Max Daily EV Charging Hours
+      description: "Boosting won't start if the EV has already charged this many hours today."
+      default: 5.972
+      selector:
+        number:
+          min: 0
+          max: 24
+          step: 0.001
+          unit_of_measurement: "h"
+          mode: box
+    stop_above_soc:
+      name: Stop Boost SOC (%)
+      description: "House battery SOC above which boosting stops."
+      default: 79
+      selector:
+        number:
+          min: 0
+          max: 100
+          step: 1
+          unit_of_measurement: "%"
+          mode: box
+    charge_target_low:
+      name: Low Charge Target (%)
+      description: "Octopus charge target used when stopping the boost."
+      default: 10
+      selector:
+        number:
+          min: 0
+          max: 100
+          step: 1
+          unit_of_measurement: "%"
+          mode: box
+    charge_target_high:
+      name: High Charge Target (%)
+      description: "Octopus charge target used when starting the boost."
+      default: 100
+      selector:
+        number:
+          min: 0
+          max: 100
+          step: 1
+          unit_of_measurement: "%"
+          mode: box
+
+triggers:
+  - trigger: numeric_state
+    id: ev_power
+    entity_id: !input foxess_modbus_soc
+    below: !input boost_below_soc
+    enabled: true
+  - trigger: numeric_state
+    id: ev_power_critical
+    entity_id: !input foxess_modbus_soc
+    below: !input boost_below_soc_critical
+    enabled: true
+  - trigger: state
+    id: ev_plugged
+    entity_id: !input hypervolt_ev_plugged
+    from: "off"
+    to: "on"
+    enabled: true
+  - trigger: numeric_state
+    id: solar_low
+    entity_id: !input solar_power_sensor
+    below: !input solar_low_threshold
+    for:
+      minutes: 3
+    enabled: true
+  - trigger: event
+    id: reloaded
+    event_type: automation_reloaded
+    enabled: false
+  - trigger: numeric_state
+    id: ev_power_high
+    entity_id: !input foxess_modbus_soc
+    above: !input stop_above_soc
+    enabled: true
+  - trigger: state
+    id: ev_unplugged
+    entity_id: !input hypervolt_ev_plugged
+    to: "off"
+    enabled: true
+
+conditions: []
+
+actions:
+  - choose:
+      # ---- Start / raise boost ----
+      - conditions:
+          - condition: trigger
+            id:
+              - ev_power
+              - ev_power_critical
+              - ev_plugged
+              - solar_low
+              - reloaded
+          - condition: state
+            entity_id: !input octopus_smart_charge_switch
+            state: "off"
+          - condition: numeric_state
+            entity_id: !input daily_ev_charging_time_sensor
+            below: !input max_daily_ev_charging_hours
+          - condition: state
+            entity_id: !input hypervolt_ev_plugged
+            state: "on"
+          - condition: numeric_state
+            entity_id: !input foxess_modbus_soc
+            below: !input boost_below_soc
+          - condition: or
+            conditions:
+              - condition: numeric_state
+                entity_id: !input solar_power_sensor
+                below: !input solar_low_threshold
+              - condition: numeric_state
+                entity_id: !input foxess_modbus_soc
+                below: !input boost_below_soc_critical
+          - condition: state
+            entity_id: !input work_mode_select
+            state: !input work_mode_self_use_state
+        sequence:
+          - action: switch.turn_on
+            metadata: {}
+            target:
+              entity_id: !input octopus_smart_charge_switch
+            data: {}
+          - if:
+              - condition: numeric_state
+                entity_id: !input octopus_charge_target_number
+                below: !input charge_target_high
+            then:
+              - action: number.set_value
+                metadata: {}
+                target:
+                  entity_id: !input octopus_charge_target_number
+                data:
+                  value: "{{ charge_target_high }}"
+
+      # ---- Stop / lower boost ----
+      - conditions:
+          - condition: trigger
+            id:
+              - ev_power_high
+              - ev_unplugged
+          - condition: state
+            entity_id: !input hypervolt_charging_switch
+            state: "on"
+          - condition: state
+            entity_id: !input octopus_smart_charge_switch
+            state: "on"
+          - condition: numeric_state
+            entity_id: !input foxess_modbus_soc
+            above: !input stop_above_soc
+        sequence:
+          - action: switch.turn_off
+            metadata: {}
+            target:
+              entity_id: !input octopus_smart_charge_switch
+            data: {}
+
+mode: single
